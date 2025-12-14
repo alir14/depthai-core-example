@@ -65,7 +65,7 @@ private:
     // Camera node shared across modules
     std::shared_ptr<dai::node::Camera> camera_node_;
     
-    // Control queue for camera settings (V3 uses InputQueue for inputs)
+    // Control queue for camera settings (V3 uses InputQueue for input queues)
     std::shared_ptr<dai::InputQueue> control_queue_;
     
     // Camera controller

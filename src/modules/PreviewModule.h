@@ -22,7 +22,7 @@ public:
 
 private:
     OutputConfig config_;
-    std::shared_ptr<dai::OutputQueue> output_queue_;
+    std::shared_ptr<dai::MessageQueue> output_queue_;
     bool show_preview_ = true;
 };
 

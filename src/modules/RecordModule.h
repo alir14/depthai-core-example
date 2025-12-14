@@ -27,8 +27,8 @@ public:
 
 private:
     RecordConfig config_;
-    std::shared_ptr<dai::OutputQueue> encoded_queue_;
-    std::shared_ptr<dai::OutputQueue> preview_queue_;
+    std::shared_ptr<dai::MessageQueue> encoded_queue_;
+    std::shared_ptr<dai::MessageQueue> preview_queue_;
     
     std::ofstream output_file_;
     std::string output_file_path_;

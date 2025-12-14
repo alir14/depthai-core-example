@@ -25,8 +25,8 @@ private:
                        const std::vector<dai::ImgDetection>& detections);
 
     InferenceConfig config_;
-    std::shared_ptr<dai::OutputQueue> preview_queue_;
-    std::shared_ptr<dai::OutputQueue> detection_queue_;
+    std::shared_ptr<dai::MessageQueue> preview_queue_;
+    std::shared_ptr<dai::MessageQueue> detection_queue_;
     
     std::vector<std::string> labels_;
     bool show_preview_ = true;

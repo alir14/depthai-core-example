@@ -45,7 +45,7 @@ bool InferenceModule::configure(dai::Pipeline& pipeline,
             config_.model_path.find(".tar") != std::string::npos) {
             // Use NNArchive for packaged models
             dai::NNArchive archive(config_.model_path);
-            detectionNetwork->build(nnInput, archive);
+            detectionNetwork->build(*nnInput, archive);
         } else {
             // Use blob path directly
             detectionNetwork->setBlobPath(config_.model_path);
@@ -137,7 +137,7 @@ void InferenceModule::drawDetections(cv::Mat& frame,
 
         // Get label
         std::string label;
-        if (det.label < static_cast<int>(labels_.size())) {
+        if (det.label < labels_.size()) {
             label = labels_[det.label];
         } else {
             label = "Class " + std::to_string(det.label);

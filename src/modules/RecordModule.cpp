@@ -93,7 +93,7 @@ void RecordModule::process() {
     if (encoded_queue_) {
         auto encodedFrame = encoded_queue_->tryGet<dai::ImgFrame>();
         if (encodedFrame) {
-            auto& data = encodedFrame->getData();
+            auto data = encodedFrame->getData();
             output_file_.write(reinterpret_cast<const char*>(data.data()), data.size());
             recorded_frames_++;
         }
