@@ -1,35 +1,64 @@
 #include <iostream>
-#include <memory>
-#include <opencv2/opencv.hpp>
+#include <thread>
+#include <chrono>
 
-#include <depthai/depthai.hpp>
+#include "engine/EngineManager.h"
+#include "engine/Types.h"
+#include "modules/PreviewModule.h"
 
 int main() {
-  // Create device
-  std::shared_ptr<dai::Device> device = std::make_shared<dai::Device>();
+    std::cout << "OAK Camera Service Engine - Test Application" << std::endl;
+    std::cout << "=============================================" << std::endl;
 
-  // Create pipeline
-  dai::Pipeline pipeline(device);
+    // Get engine instance
+    auto& engine = oak::EngineManager::getInstance();
 
-  // Create nodes
-  auto cam = pipeline.create<dai::node::Camera>()->build();
-  auto videoQueue =
-      cam->requestOutput(std::make_pair(640, 400))->createOutputQueue();
+    // Initialize engine
+    oak::EngineConfig config;
+    config.preview_width = 1280;
+    config.preview_height = 720;
+    config.preview_fps = 30;
 
-  // Start pipeline
-  pipeline.start();
-
-  while (true) {
-    auto videoIn = videoQueue->get<dai::ImgFrame>();
-    if (videoIn == nullptr)
-      continue;
-
-    cv::imshow("video", videoIn->getCvFrame());
-
-    if (cv::waitKey(1) == 'q') {
-      break;
+    if (!engine.initialize(config)) {
+        std::cerr << "Failed to initialize engine" << std::endl;
+        return 1;
     }
-  }
 
-  return 0;
+    std::cout << "Engine initialized successfully" << std::endl;
+    std::cout << "Device ID: " << engine.getDeviceId() << std::endl;
+    std::cout << std::endl;
+
+    // Create and start preview module
+    auto previewModule = std::make_shared<oak::PreviewModule>(
+        config.preview_width, 
+        config.preview_height, 
+        config.preview_fps
+    );
+
+    std::cout << "Starting preview module..." << std::endl;
+    if (!engine.startModule(previewModule)) {
+        std::cerr << "Failed to start preview module" << std::endl;
+        engine.shutdown();
+        return 1;
+    }
+
+    std::cout << "Preview module started" << std::endl;
+    std::cout << "State: " << oak::moduleStateToString(engine.getState()) << std::endl;
+    std::cout << "Active Module: " << engine.getActiveModuleName() << std::endl;
+    std::cout << std::endl;
+    std::cout << "Press 'q' in preview window or Ctrl+C to stop..." << std::endl;
+
+    // Run for demonstration (in real application, this would be controlled by API)
+    std::this_thread::sleep_for(std::chrono::seconds(30));
+
+    // Shutdown
+    std::cout << std::endl;
+    std::cout << "Stopping preview module..." << std::endl;
+    engine.stopModule();
+    
+    std::cout << "Shutting down engine..." << std::endl;
+    engine.shutdown();
+
+    std::cout << "Application finished" << std::endl;
+    return 0;
 }

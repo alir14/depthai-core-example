@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 
-# Create a project with name 'myapp'
-set(TARGET_NAME myapp)
+# Create a project with name 'oak-camera-service'
+set(TARGET_NAME oak-camera-service)
 project(${TARGET_NAME})
 
 # Depthai dependency
@@ -11,16 +11,35 @@ message(STATUS "Found depthai: ${depthai_DIR}")
 # Dependencies (optional, only used for example)
 find_package(OpenCV REQUIRED)
 
+# Threading library (required for std::thread)
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
+
+
 # Add source files
-add_executable("${TARGET_NAME}"
-    src/main.cpp
+#add_executable("${TARGET_NAME}"
+#    src/main.cpp
+# "src/engine/Types.h" "src/engine/Modulebase.h" "src/engine/Enginemanager.h" "src/engine/Enginemanager.cpp" "src/Previewmodule.h" "src/Previewmodule.cpp")
+
+file(GLOB_RECURSE SOURCES 
+    "src/engine/*.cpp"
+    "src/modules/*.cpp"
+    "src/main.cpp"
+)
+
+add_executable("${TARGET_NAME}" ${SOURCES})
+
+# Include directories
+target_include_directories(${TARGET_NAME} PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
 # Link with libraries
 target_link_libraries(${TARGET_NAME}
     PUBLIC
         depthai::core
-        ${OpenCV_LIBS} # optional, used for example
+        ${OpenCV_LIBS} 
+        Threads::Threads
 )
 
 # Set some errors

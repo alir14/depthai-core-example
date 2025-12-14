@@ -1,2 +1,169 @@
-.vscode/
+# Build directories
 build/
+cmake-build-*/
+out/
+bin/
+lib/
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+CMakeScripts/
+Testing/
+Makefile
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
+_deps/
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+oak-camera-service
+
+# IDE - Visual Studio Code
+.vscode/
+*.code-workspace
+
+# IDE - Visual Studio
+.vs/
+*.sln
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+
+# IDE - CLion / JetBrains
+.idea/
+cmake-build-*/
+
+# IDE - Eclipse
+.cproject
+.project
+.settings/
+
+# IDE - Xcode
+*.xcodeproj
+*.xcworkspace
+
+# Models (large binary files)
+models/*.blob
+!models/.gitkeep
+
+# Recordings (video output files)
+recordings/*.h265
+recordings/*.h264
+recordings/*.mp4
+recordings/*.avi
+recordings/*.mkv
+!recordings/.gitkeep
+
+# Logs
+*.log
+logs/
+
+# OS specific
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+*~
+
+# Temporary files
+*.swp
+*.swo
+*.tmp
+*.temp
+*.bak
+
+# Dependencies (if vendored)
+third_party/
+vendor/
+
+# Package managers
+conan/
+vcpkg_installed/
+
+# Documentation builds
+docs/_build/
+docs/html/
+docs/latex/
+
+# Core dumps
+core
+core.*
+
+# Valgrind
+*.memcheck
+*.callgrind
+*.cachegrind
+
+# Coverage
+*.gcov
+*.gcno
+*.gcda
+coverage/
+
+# Python (if using any scripts)
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+venv/
+env/
+
+# Node (if UI development)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# UI build artifacts (future)
+ui/dist/
+ui/build/
+ui/.next/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Database files (if needed in future)
+*.db
+*.sqlite
+*.sqlite3
+
+# Archive files
+*.zip
+*.tar.gz
+*.7z
+*.rar
