@@ -28,9 +28,10 @@ bool InferenceModule::configure(dai::Pipeline& pipeline,
                                 std::shared_ptr<dai::node::Camera> camera) {
     try {
         // V3 API: Request camera output sized for neural network input
+        // Note: Camera resizer only supports BGR888i (interleaved), not BGR888p (planar)
         auto* nnInput = camera->requestOutput(
             {config_.input_width, config_.input_height},
-            dai::ImgFrame::Type::BGR888p,
+            dai::ImgFrame::Type::BGR888i,
             dai::ImgResizeMode::LETTERBOX,  // Preserve aspect ratio for NN
             30.0f,
             false
@@ -58,9 +59,10 @@ bool InferenceModule::configure(dai::Pipeline& pipeline,
         detection_queue_ = detectionNetwork->out.createOutputQueue(4, false);
 
         // Create preview output for visualization
+        // Note: Camera resizer only supports BGR888i (interleaved), not BGR888p (planar)
         auto* previewOutput = camera->requestOutput(
             {640, 480},
-            dai::ImgFrame::Type::BGR888p,
+            dai::ImgFrame::Type::BGR888i,
             dai::ImgResizeMode::LETTERBOX,
             30.0f,
             false

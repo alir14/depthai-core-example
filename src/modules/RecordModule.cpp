@@ -48,9 +48,10 @@ bool RecordModule::configure(dai::Pipeline& pipeline,
         encoded_queue_ = videoEncoder->out.createOutputQueue(30, true);
 
         // Also create a preview output for monitoring
+        // Note: Camera resizer only supports BGR888i (interleaved), not BGR888p (planar)
         auto* previewOutput = camera->requestOutput(
             {640, 360},  // Lower resolution preview
-            dai::ImgFrame::Type::BGR888p,
+            dai::ImgFrame::Type::BGR888i,
             dai::ImgResizeMode::CROP,
             config_.fps,
             false

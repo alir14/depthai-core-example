@@ -154,12 +154,13 @@ bool EngineManager::buildAndStartPipeline(std::shared_ptr<ModuleBase> module) {
             return false;
         }
 
+        // Create control queue for camera settings BEFORE starting pipeline
+        // V3 API: createInputQueue must be called before pipeline->start()
+        control_queue_ = camera_node_->inputControl.createInputQueue();
+
         // Start pipeline (V3 API)
         pipeline_->start();
         std::cout << "Pipeline started" << std::endl;
-
-        // Create control queue for camera settings (V3 API: createInputQueue on node input)
-        control_queue_ = camera_node_->inputControl.createInputQueue();
 
         active_module_ = module;
         pipeline_running_ = true;

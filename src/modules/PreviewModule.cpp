@@ -28,9 +28,10 @@ bool PreviewModule::configure(dai::Pipeline& pipeline,
         }
 
         // Request BGR output for OpenCV compatibility
+        // Note: Camera resizer only supports BGR888i (interleaved), not BGR888p (planar)
         auto* output = camera->requestOutput(
             {config_.width, config_.height},
-            dai::ImgFrame::Type::BGR888p,
+            dai::ImgFrame::Type::BGR888i,
             resize_mode,
             config_.fps,
             config_.enable_undistortion
