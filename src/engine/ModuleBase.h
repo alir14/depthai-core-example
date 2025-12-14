@@ -1,35 +1,46 @@
 #pragma once
 
 #include <memory>
-#include <map>
 #include <string>
+#include <functional>
 #include <depthai/depthai.hpp>
+#include "Types.h"
 
 namespace oak {
 
-class ModuleBase {
-public:
-    virtual ~ModuleBase() = default;
+    // Callback types for data output
+    using FrameCallback = std::function<void(std::shared_ptr<dai::ImgFrame>)>;
+    using DetectionCallback = std::function<void(std::shared_ptr<dai::ImgDetections>)>;
 
-    // Build and return a pipeline configuration
-    virtual std::shared_ptr<dai::Pipeline> buildPipeline() = 0;
+    class ModuleBase {
+    public:
+        virtual ~ModuleBase() = default;
 
-    // Get output queue names this module creates
-    virtual std::vector<std::string> getOutputQueueNames() const = 0;
+        // Configure the pipeline with camera node and output queues
+        virtual bool configure(dai::Pipeline& pipeline,
+            std::shared_ptr<dai::node::Camera> camera) = 0;
 
-    // Process output queues (called in loop by engine)
-    virtual void processOutputs(
-        std::map<std::string, std::shared_ptr<dai::DataOutputQueue>>& queues
-    ) = 0;
+        // Get module name
+        virtual std::string getName() const = 0;
 
-    // Get module name
-    virtual std::string getName() const = 0;
+        // Get module state type
+        virtual ModuleState getStateType() const = 0;
 
-    // Cleanup before stopping
-    virtual void cleanup() {}
+        // Process loop - called in main processing thread
+        virtual void process() = 0;
 
-protected:
-    ModuleBase() = default;
-};
+        // Cleanup resources
+        virtual void cleanup() {}
+
+        // Set callbacks
+        void setFrameCallback(FrameCallback callback) { frame_callback_ = callback; }
+        void setDetectionCallback(DetectionCallback callback) { detection_callback_ = callback; }
+
+    protected:
+        ModuleBase() = default;
+
+        FrameCallback frame_callback_;
+        DetectionCallback detection_callback_;
+    };
 
 } // namespace oak

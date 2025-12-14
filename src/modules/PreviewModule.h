@@ -6,20 +6,24 @@
 
 namespace oak {
 
-class PreviewModule : public ModuleBase {
-public:
-    PreviewModule(int width = 1920, int height = 1080, int fps = 30);
-    ~PreviewModule() override = default;
+    class PreviewModule : public ModuleBase {
+    public:
+        explicit PreviewModule(const OutputConfig& config);
+        ~PreviewModule() override = default;
 
-    std::shared_ptr<dai::Pipeline> buildPipeline() override;
-    std::vector<std::string> getOutputQueueNames() const override;
-    void processOutputs(std::map<std::string, std::shared_ptr<dai::DataOutputQueue>>& queues) override;
-    std::string getName() const override { return "PreviewModule"; }
+        bool configure(dai::Pipeline& pipeline,
+            std::shared_ptr<dai::node::Camera> camera) override;
 
-private:
-    int width_;
-    int height_;
-    int fps_;
-};
+        std::string getName() const override { return "PreviewModule"; }
+        ModuleState getStateType() const override { return ModuleState::PREVIEW; }
+
+        void process() override;
+        void cleanup() override;
+
+    private:
+        OutputConfig config_;
+        std::shared_ptr<dai::MessageQueue> output_queue_;
+        bool show_preview_ = true;
+    };
 
 } // namespace oak

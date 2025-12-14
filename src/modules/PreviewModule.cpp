@@ -3,64 +3,87 @@
 
 namespace oak {
 
-PreviewModule::PreviewModule(int width, int height, int fps)
-    : width_(width), height_(height), fps_(fps) {
-}
-
-std::shared_ptr<dai::Pipeline> PreviewModule::buildPipeline() {
-    auto pipeline = std::make_shared<dai::Pipeline>();
-
-    // Create color camera node
-    auto camRgb = pipeline->create<dai::node::ColorCamera>();
-    camRgb->setResolution(dai::ColorCameraProperties::SensorResolution::THE_1080_P);
-    camRgb->setVideoSize(width_, height_);
-    camRgb->setFps(fps_);
-    camRgb->setInterleaved(false);
-    camRgb->setPreviewSize(width_, height_);
-
-    // Create output node
-    auto xoutVideo = pipeline->create<dai::node::XLinkOut>();
-    xoutVideo->setStreamName("preview");
-
-    // Link camera to output
-    camRgb->video.link(xoutVideo->input);
-
-    std::cout << "PreviewModule pipeline built: " << width_ << "x" << height_ 
-              << " @ " << fps_ << " fps" << std::endl;
-
-    return pipeline;
-}
-
-std::vector<std::string> PreviewModule::getOutputQueueNames() const {
-    return {"preview"};
-}
-
-void PreviewModule::processOutputs(
-    std::map<std::string, std::shared_ptr<dai::DataOutputQueue>>& queues) {
-    
-    auto it = queues.find("preview");
-    if (it == queues.end()) {
-        return;
+    PreviewModule::PreviewModule(const OutputConfig& config)
+        : config_(config) {
     }
 
-    auto queue = it->second;
-    auto imgFrame = queue->tryGet<dai::ImgFrame>();
+    bool PreviewModule::configure(dai::Pipeline& pipeline,
+        std::shared_ptr<dai::node::Camera> camera) {
+        try {
+            // V3 API: Request output directly from camera node
+            // This replaces the need for separate ImageManip nodes in many cases
+            dai::ImgResizeMode resize_mode;
+            switch (config_.resize_mode) {
+            case ResizeMode::CROP:
+                resize_mode = dai::ImgResizeMode::CROP;
+                break;
+            case ResizeMode::STRETCH:
+                resize_mode = dai::ImgResizeMode::STRETCH;
+                break;
+            case ResizeMode::LETTERBOX:
+                resize_mode = dai::ImgResizeMode::LETTERBOX;
+                break;
+            default:
+                resize_mode = dai::ImgResizeMode::CROP;
+            }
 
-    if (imgFrame) {
-        // Get OpenCV frame
-        cv::Mat frame = imgFrame->getCvFrame();
-        
-        // Display frame
-        cv::imshow("Preview", frame);
-        
-        // Check for 'q' key to stop
-        int key = cv::waitKey(1);
-        if (key == 'q' || key == 'Q') {
-            std::cout << "Preview window closed by user" << std::endl;
+            // Request BGR output for OpenCV compatibility
+            auto* output = camera->requestOutput(
+                { config_.width, config_.height },
+                dai::ImgFrame::Type::BGR888p,
+                resize_mode,
+                config_.fps,
+                config_.enable_undistortion
+            );
+
+            // V3 API: Create output queue directly from node output
+            output_queue_ = output->createOutputQueue(8, false);
+
+            std::cout << "PreviewModule configured: " << config_.width << "x" << config_.height
+                << " @ " << config_.fps << " fps" << std::endl;
+
+            return true;
+
         }
-        
-        // Could also publish to RTSP/WebRTC here in future
+        catch (const std::exception& e) {
+            std::cerr << "Failed to configure PreviewModule: " << e.what() << std::endl;
+            return false;
+        }
     }
-}
+
+    void PreviewModule::process() {
+        if (!output_queue_) {
+            return;
+        }
+
+        // Try to get frame (non-blocking)
+        auto imgFrame = output_queue_->tryGet<dai::ImgFrame>();
+
+        if (imgFrame) {
+            // Call callback if set
+            if (frame_callback_) {
+                frame_callback_(imgFrame);
+            }
+
+            // Display preview
+            if (show_preview_) {
+                cv::Mat frame = imgFrame->getCvFrame();
+                cv::imshow("OAK Preview", frame);
+
+                int key = cv::waitKey(1);
+                if (key == 'q' || key == 'Q' || key == 27) {  // q or ESC
+                    show_preview_ = false;
+                    cv::destroyWindow("OAK Preview");
+                }
+            }
+        }
+    }
+
+    void PreviewModule::cleanup() {
+        if (show_preview_) {
+            cv::destroyAllWindows();
+        }
+        output_queue_.reset();
+    }
 
 } // namespace oak
