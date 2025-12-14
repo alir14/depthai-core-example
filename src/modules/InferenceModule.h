@@ -6,30 +6,30 @@
 
 namespace oak {
 
-    class InferenceModule : public ModuleBase {
-    public:
-        explicit InferenceModule(const InferenceConfig& config);
-        ~InferenceModule() override = default;
+class InferenceModule : public ModuleBase {
+public:
+    explicit InferenceModule(const InferenceConfig& config);
+    ~InferenceModule() override = default;
 
-        bool configure(dai::Pipeline& pipeline,
-            std::shared_ptr<dai::node::Camera> camera) override;
+    bool configure(dai::Pipeline& pipeline, 
+                  std::shared_ptr<dai::node::Camera> camera) override;
+    
+    std::string getName() const override { return "InferenceModule"; }
+    ModuleState getStateType() const override { return ModuleState::INFERENCE; }
+    
+    void process() override;
+    void cleanup() override;
 
-        std::string getName() const override { return "InferenceModule"; }
-        ModuleState getStateType() const override { return ModuleState::INFERENCE; }
+private:
+    void drawDetections(cv::Mat& frame, 
+                       const std::vector<dai::ImgDetection>& detections);
 
-        void process() override;
-        void cleanup() override;
-
-    private:
-        void drawDetections(cv::Mat& frame,
-            const std::vector<dai::ImgDetection>& detections);
-
-        InferenceConfig config_;
-        std::shared_ptr<dai::MessageQueue> preview_queue_;
-        std::shared_ptr<dai::MessageQueue> detection_queue_;
-
-        std::vector<std::string> labels_;
-        bool show_preview_ = true;
-    };
+    InferenceConfig config_;
+    std::shared_ptr<dai::OutputQueue> preview_queue_;
+    std::shared_ptr<dai::OutputQueue> detection_queue_;
+    
+    std::vector<std::string> labels_;
+    bool show_preview_ = true;
+};
 
 } // namespace oak

@@ -7,33 +7,33 @@
 
 namespace oak {
 
-    class RecordModule : public ModuleBase {
-    public:
-        explicit RecordModule(const RecordConfig& config);
-        ~RecordModule() override = default;
+class RecordModule : public ModuleBase {
+public:
+    explicit RecordModule(const RecordConfig& config);
+    ~RecordModule() override = default;
 
-        bool configure(dai::Pipeline& pipeline,
-            std::shared_ptr<dai::node::Camera> camera) override;
+    bool configure(dai::Pipeline& pipeline, 
+                  std::shared_ptr<dai::node::Camera> camera) override;
+    
+    std::string getName() const override { return "RecordModule"; }
+    ModuleState getStateType() const override { return ModuleState::RECORD; }
+    
+    void process() override;
+    void cleanup() override;
 
-        std::string getName() const override { return "RecordModule"; }
-        ModuleState getStateType() const override { return ModuleState::RECORD; }
+    // Recording control
+    std::string getOutputFilePath() const { return output_file_path_; }
+    uint64_t getRecordedFrames() const { return recorded_frames_; }
 
-        void process() override;
-        void cleanup() override;
-
-        // Recording control
-        std::string getOutputFilePath() const { return output_file_path_; }
-        uint64_t getRecordedFrames() const { return recorded_frames_; }
-
-    private:
-        RecordConfig config_;
-        std::shared_ptr<dai::MessageQueue> encoded_queue_;
-        std::shared_ptr<dai::MessageQueue> preview_queue_;
-
-        std::ofstream output_file_;
-        std::string output_file_path_;
-        uint64_t recorded_frames_ = 0;
-        bool show_preview_ = true;
-    };
+private:
+    RecordConfig config_;
+    std::shared_ptr<dai::OutputQueue> encoded_queue_;
+    std::shared_ptr<dai::OutputQueue> preview_queue_;
+    
+    std::ofstream output_file_;
+    std::string output_file_path_;
+    uint64_t recorded_frames_ = 0;
+    bool show_preview_ = true;
+};
 
 } // namespace oak

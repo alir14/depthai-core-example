@@ -7,7 +7,7 @@
 #include "engine/EngineManager.h"
 #include "engine/Types.h"
 
-std::atomic<bool> g_running{ true };
+std::atomic<bool> g_running{true};
 
 void signalHandler(int signum) {
     std::cout << "\nInterrupt signal (" << signum << ") received." << std::endl;
@@ -73,13 +73,13 @@ int main(int argc, char* argv[]) {
     engine.setFrameCallback([](std::shared_ptr<dai::ImgFrame> frame) {
         // Custom frame processing can be done here
         // For example: streaming to network, saving frames, etc.
-        });
+    });
 
     // Set detection callback (optional - for inference results)
     engine.setDetectionCallback([](std::shared_ptr<dai::ImgDetections> detections) {
         // Process detections here
         // For example: sending to REST API, logging, etc.
-        });
+    });
 
     // Interactive loop
     while (g_running) {
@@ -92,94 +92,91 @@ int main(int argc, char* argv[]) {
         if (input.empty()) continue;
 
         char cmd = input[0];
-
+        
         switch (cmd) {
-        case 'p':
-        case 'P': {
-            std::cout << "Starting preview..." << std::endl;
-            oak::OutputConfig previewConfig;
-            previewConfig.width = 1280;
-            previewConfig.height = 720;
-            previewConfig.fps = 30.0f;
-            previewConfig.resize_mode = oak::ResizeMode::CROP;
-
-            if (engine.startPreview(previewConfig)) {
-                std::cout << "Preview started. Press 'q' in window or 's' here to stop." << std::endl;
-            }
-            else {
-                std::cout << "Failed to start preview" << std::endl;
-            }
-            break;
-        }
-
-        case 'r':
-        case 'R': {
-            std::cout << "Starting recording..." << std::endl;
-            oak::RecordConfig recordConfig;
-            recordConfig.output_path = "recordings/";
-            recordConfig.filename_prefix = "oak_recording";
-            recordConfig.width = 1920;
-            recordConfig.height = 1080;
-            recordConfig.fps = 30.0f;
-            recordConfig.use_h265 = true;
-            recordConfig.bitrate = 8000000;  // 8 Mbps
-
-            if (engine.startRecording(recordConfig)) {
-                std::cout << "Recording started. Press 's' to stop and save." << std::endl;
-            }
-            else {
-                std::cout << "Failed to start recording" << std::endl;
-            }
-            break;
-        }
-
-        case 'i':
-        case 'I': {
-            std::cout << "Enter model path (.blob or .tar.xz): ";
-            std::string modelPath;
-            std::getline(std::cin, modelPath);
-
-            if (modelPath.empty()) {
-                std::cout << "Model path required for inference" << std::endl;
+            case 'p':
+            case 'P': {
+                std::cout << "Starting preview..." << std::endl;
+                oak::OutputConfig previewConfig;
+                previewConfig.width = 1280;
+                previewConfig.height = 720;
+                previewConfig.fps = 30.0f;
+                previewConfig.resize_mode = oak::ResizeMode::CROP;
+                
+                if (engine.startPreview(previewConfig)) {
+                    std::cout << "Preview started. Press 'q' in window or 's' here to stop." << std::endl;
+                } else {
+                    std::cout << "Failed to start preview" << std::endl;
+                }
                 break;
             }
-
-            std::cout << "Starting inference..." << std::endl;
-            oak::InferenceConfig inferConfig;
-            inferConfig.model_path = modelPath;
-            inferConfig.input_width = 640;
-            inferConfig.input_height = 640;
-            inferConfig.confidence_threshold = 0.5f;
-
-            if (engine.startInference(inferConfig)) {
-                std::cout << "Inference started. Press 'q' in window or 's' here to stop." << std::endl;
+            
+            case 'r':
+            case 'R': {
+                std::cout << "Starting recording..." << std::endl;
+                oak::RecordConfig recordConfig;
+                recordConfig.output_path = "recordings/";
+                recordConfig.filename_prefix = "oak_recording";
+                recordConfig.width = 1920;
+                recordConfig.height = 1080;
+                recordConfig.fps = 30.0f;
+                recordConfig.use_h265 = true;
+                recordConfig.bitrate = 8000000;  // 8 Mbps
+                
+                if (engine.startRecording(recordConfig)) {
+                    std::cout << "Recording started. Press 's' to stop and save." << std::endl;
+                } else {
+                    std::cout << "Failed to start recording" << std::endl;
+                }
+                break;
             }
-            else {
-                std::cout << "Failed to start inference" << std::endl;
+            
+            case 'i':
+            case 'I': {
+                std::cout << "Enter model path (.blob or .tar.xz): ";
+                std::string modelPath;
+                std::getline(std::cin, modelPath);
+                
+                if (modelPath.empty()) {
+                    std::cout << "Model path required for inference" << std::endl;
+                    break;
+                }
+                
+                std::cout << "Starting inference..." << std::endl;
+                oak::InferenceConfig inferConfig;
+                inferConfig.model_path = modelPath;
+                inferConfig.input_width = 640;
+                inferConfig.input_height = 640;
+                inferConfig.confidence_threshold = 0.5f;
+                
+                if (engine.startInference(inferConfig)) {
+                    std::cout << "Inference started. Press 'q' in window or 's' here to stop." << std::endl;
+                } else {
+                    std::cout << "Failed to start inference" << std::endl;
+                }
+                break;
             }
-            break;
-        }
-
-        case 's':
-        case 'S':
-            std::cout << "Stopping module..." << std::endl;
-            engine.stopModule();
-            std::cout << "Module stopped" << std::endl;
-            break;
-
-        case 'q':
-        case 'Q':
-            g_running = false;
-            break;
-
-        case '?':
-            printUsage();
-            printStatus(engine);
-            break;
-
-        default:
-            std::cout << "Unknown command. Press '?' for help." << std::endl;
-            break;
+            
+            case 's':
+            case 'S':
+                std::cout << "Stopping module..." << std::endl;
+                engine.stopModule();
+                std::cout << "Module stopped" << std::endl;
+                break;
+            
+            case 'q':
+            case 'Q':
+                g_running = false;
+                break;
+            
+            case '?':
+                printUsage();
+                printStatus(engine);
+                break;
+            
+            default:
+                std::cout << "Unknown command. Press '?' for help." << std::endl;
+                break;
         }
     }
 

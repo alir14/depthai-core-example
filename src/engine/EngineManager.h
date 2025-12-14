@@ -13,83 +13,83 @@
 
 namespace oak {
 
-    class EngineManager {
-    public:
-        static EngineManager& getInstance();
+class EngineManager {
+public:
+    static EngineManager& getInstance();
 
-        EngineManager(const EngineManager&) = delete;
-        EngineManager& operator=(const EngineManager&) = delete;
+    EngineManager(const EngineManager&) = delete;
+    EngineManager& operator=(const EngineManager&) = delete;
 
-        // Lifecycle
-        bool initialize(const EngineConfig& config = EngineConfig{});
-        void shutdown();
+    // Lifecycle
+    bool initialize(const EngineConfig& config = EngineConfig{});
+    void shutdown();
 
-        // Module control
-        bool startPreview(const OutputConfig& config = OutputConfig{});
-        bool startRecording(const RecordConfig& config);
-        bool startInference(const InferenceConfig& config);
-        bool stopModule();
+    // Module control
+    bool startPreview(const OutputConfig& config = OutputConfig{});
+    bool startRecording(const RecordConfig& config);
+    bool startInference(const InferenceConfig& config);
+    bool stopModule();
 
-        // Camera settings
-        bool updateCameraSettings(const CameraSettings& settings);
-        CameraSettings getCameraSettings() const;
+    // Camera settings
+    bool updateCameraSettings(const CameraSettings& settings);
+    CameraSettings getCameraSettings() const;
 
-        // State queries
-        ModuleState getState() const { return state_.load(); }
-        std::string getActiveModuleName() const;
-        bool isRunning() const { return running_.load(); }
+    // State queries
+    ModuleState getState() const { return state_.load(); }
+    std::string getActiveModuleName() const;
+    bool isRunning() const { return running_.load(); }
 
-        // Device info
-        std::string getDeviceId() const;
-        std::string getDeviceName() const;
-        bool isDeviceConnected() const;
-        std::vector<dai::CameraBoardSocket> getConnectedCameras() const;
+    // Device info
+    std::string getDeviceId() const;
+    std::string getDeviceName() const;
+    bool isDeviceConnected() const;
+    std::vector<dai::CameraBoardSocket> getConnectedCameras() const;
 
-        // Callbacks
-        void setFrameCallback(FrameCallback callback);
-        void setDetectionCallback(DetectionCallback callback);
+    // Callbacks
+    void setFrameCallback(FrameCallback callback);
+    void setDetectionCallback(DetectionCallback callback);
 
-    private:
-        EngineManager() = default;
-        ~EngineManager();
+private:
+    EngineManager() = default;
+    ~EngineManager();
 
-        // Internal pipeline management
-        bool buildAndStartPipeline(std::shared_ptr<ModuleBase> module);
-        void stopPipeline();
-        void processingLoop();
+    // Internal pipeline management
+    bool buildAndStartPipeline(std::shared_ptr<ModuleBase> module);
+    void stopPipeline();
+    void processingLoop();
 
-        // Device and pipeline (V3 style - pipeline takes device in constructor)
-        std::shared_ptr<dai::Device> device_;
-        std::unique_ptr<dai::Pipeline> pipeline_;
+    // Device and pipeline (V3 style - pipeline takes device in constructor)
+    std::shared_ptr<dai::Device> device_;
+    std::unique_ptr<dai::Pipeline> pipeline_;
+    
+    // Camera node shared across modules
+    std::shared_ptr<dai::node::Camera> camera_node_;
+    
+    // Control queue for camera settings (V3 uses InputQueue for inputs)
+    std::shared_ptr<dai::InputQueue> control_queue_;
+    
+    // Camera controller
+    CameraController camera_controller_;
+    
+    // Active module
+    std::shared_ptr<ModuleBase> active_module_;
 
-        // Camera node shared across modules
-        std::shared_ptr<dai::node::Camera> camera_node_;
+    // State
+    std::atomic<ModuleState> state_{ModuleState::IDLE};
+    EngineConfig config_;
+    CameraSettings camera_settings_;
+    OutputConfig current_output_config_;
 
-        // Control queue for camera settings (V3 uses MessageQueue)
-        std::shared_ptr<dai::MessageQueue> control_queue_;
+    // Threading
+    std::atomic<bool> running_{false};
+    std::atomic<bool> pipeline_running_{false};
+    std::thread processing_thread_;
+    mutable std::mutex mutex_;
+    std::condition_variable cv_;
 
-        // Camera controller
-        CameraController camera_controller_;
-
-        // Active module
-        std::shared_ptr<ModuleBase> active_module_;
-
-        // State
-        std::atomic<ModuleState> state_{ ModuleState::IDLE };
-        EngineConfig config_;
-        CameraSettings camera_settings_;
-        OutputConfig current_output_config_;
-
-        // Threading
-        std::atomic<bool> running_{ false };
-        std::atomic<bool> pipeline_running_{ false };
-        std::thread processing_thread_;
-        mutable std::mutex mutex_;
-        std::condition_variable cv_;
-
-        // Callbacks
-        FrameCallback frame_callback_;
-        DetectionCallback detection_callback_;
-    };
+    // Callbacks
+    FrameCallback frame_callback_;
+    DetectionCallback detection_callback_;
+};
 
 } // namespace oak
