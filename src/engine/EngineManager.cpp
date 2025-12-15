@@ -4,6 +4,7 @@
 #include "../modules/InferenceModule.h"
 #include <iostream>
 #include <chrono>
+#include <thread>
 
 namespace oak {
 
@@ -139,28 +140,46 @@ bool EngineManager::buildAndStartPipeline(std::shared_ptr<ModuleBase> module) {
     std::lock_guard<std::mutex> lock(mutex_);
 
     try {
-        std::cout << "Building pipeline for module: " << module->getName() << std::endl;
-
-        // Create pipeline with device (V3 API style)
-        pipeline_ = std::make_unique<dai::Pipeline>(device_);
-
-        // Create camera node
-        camera_node_ = pipeline_->create<dai::node::Camera>();
-        camera_node_->build(dai::CameraBoardSocket::CAM_A);
-
-        // Configure module with pipeline and camera
-        if (!module->configure(*pipeline_, camera_node_)) {
-            std::cerr << "Failed to configure module" << std::endl;
+        std::cout << "[DEBUG] Building pipeline for module: " << module->getName() << std::endl;
+        
+        // Check device state
+        if (!device_) {
+            std::cerr << "[DEBUG] ERROR: device_ is null!" << std::endl;
             return false;
         }
+        std::cout << "[DEBUG] Device pointer is valid" << std::endl;
+        
+        // Create pipeline with device (V3 API style)
+        // Note: Don't access device methods here as device may be in transition state
+        std::cout << "[DEBUG] Creating new pipeline with device..." << std::endl;
+        pipeline_ = std::make_unique<dai::Pipeline>(device_);
+        std::cout << "[DEBUG] Pipeline created successfully" << std::endl;
+
+        // Create camera node
+        std::cout << "[DEBUG] Creating camera node..." << std::endl;
+        camera_node_ = pipeline_->create<dai::node::Camera>();
+        std::cout << "[DEBUG] Building camera node..." << std::endl;
+        camera_node_->build(dai::CameraBoardSocket::CAM_A);
+        std::cout << "[DEBUG] Camera node built successfully" << std::endl;
+
+        // Configure module with pipeline and camera
+        std::cout << "[DEBUG] Configuring module..." << std::endl;
+        if (!module->configure(*pipeline_, camera_node_)) {
+            std::cerr << "[DEBUG] Failed to configure module" << std::endl;
+            return false;
+        }
+        std::cout << "[DEBUG] Module configured successfully" << std::endl;
 
         // Create control queue for camera settings BEFORE starting pipeline
         // V3 API: createInputQueue must be called before pipeline->start()
+        std::cout << "[DEBUG] Creating control queue..." << std::endl;
         control_queue_ = camera_node_->inputControl.createInputQueue();
+        std::cout << "[DEBUG] Control queue created successfully" << std::endl;
 
         // Start pipeline (V3 API)
+        std::cout << "[DEBUG] Starting pipeline..." << std::endl;
         pipeline_->start();
-        std::cout << "Pipeline started" << std::endl;
+        std::cout << "[DEBUG] Pipeline started successfully" << std::endl;
 
         active_module_ = module;
         pipeline_running_ = true;
@@ -180,9 +199,11 @@ bool EngineManager::buildAndStartPipeline(std::shared_ptr<ModuleBase> module) {
 }
 
 bool EngineManager::stopModule() {
+    std::cout << "[DEBUG] stopModule() called" << std::endl;
     {
         std::lock_guard<std::mutex> lock(mutex_);
         if (!active_module_) {
+            std::cout << "[DEBUG] No active module, returning" << std::endl;
             return true;
         }
 
@@ -191,16 +212,20 @@ bool EngineManager::stopModule() {
     }
 
     // Notify and wait for processing thread
+    std::cout << "[DEBUG] Notifying processing thread and waiting..." << std::endl;
     cv_.notify_all();
     if (processing_thread_.joinable()) {
         processing_thread_.join();
+        std::cout << "[DEBUG] Processing thread joined" << std::endl;
     }
 
     std::lock_guard<std::mutex> lock(mutex_);
 
     if (active_module_) {
+        std::cout << "[DEBUG] Cleaning up active module..." << std::endl;
         active_module_->cleanup();
         active_module_.reset();
+        std::cout << "[DEBUG] Active module cleaned up" << std::endl;
     }
 
     stopPipeline();
@@ -211,16 +236,66 @@ bool EngineManager::stopModule() {
 }
 
 void EngineManager::stopPipeline() {
+    std::cout << "[DEBUG] stopPipeline() called" << std::endl;
+    
+    // Reset queues first
+    std::cout << "[DEBUG] Resetting control queue..." << std::endl;
+    control_queue_.reset();
+    std::cout << "[DEBUG] Control queue reset" << std::endl;
+    
+    // Reset camera node
+    std::cout << "[DEBUG] Resetting camera node..." << std::endl;
+    camera_node_.reset();
+    std::cout << "[DEBUG] Camera node reset" << std::endl;
+    
+    // Stop and wait for pipeline
     if (pipeline_) {
         try {
+            std::cout << "[DEBUG] Stopping pipeline..." << std::endl;
             pipeline_->stop();
+            std::cout << "[DEBUG] Pipeline stop() called, waiting..." << std::endl;
+            // Wait for pipeline to fully stop before destroying (prevents segfault when restarting)
+            pipeline_->wait();
+            std::cout << "[DEBUG] Pipeline wait() completed" << std::endl;
         } catch (const std::exception& e) {
-            std::cerr << "Error stopping pipeline: " << e.what() << std::endl;
+            std::cerr << "[DEBUG] Error stopping pipeline: " << e.what() << std::endl;
         }
+        std::cout << "[DEBUG] Resetting pipeline..." << std::endl;
         pipeline_.reset();
+        std::cout << "[DEBUG] Pipeline reset complete" << std::endl;
+    } else {
+        std::cout << "[DEBUG] Pipeline was already null" << std::endl;
     }
-    camera_node_.reset();
-    control_queue_.reset();
+    
+    // Close and reopen device to reset state for next pipeline
+    // This is necessary because in DepthAI V3, stopping a pipeline leaves the device
+    // in a state that prevents creating a new pipeline with the same device
+    if (device_) {
+        std::cout << "[DEBUG] Closing device to reset state..." << std::endl;
+        try {
+            // Use config device_id (we stored it during initialize)
+            device_->close();
+            std::cout << "[DEBUG] Device closed, reopening..." << std::endl;
+            
+            // Small delay to ensure device is fully released
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            
+            // Reopen device using the same config
+            if (config_.device_id.empty()) {
+                device_ = std::make_shared<dai::Device>();
+            } else {
+                dai::DeviceInfo info(config_.device_id);
+                device_ = std::make_shared<dai::Device>(info);
+            }
+            std::cout << "[DEBUG] Device reopened successfully" << std::endl;
+        } catch (const std::exception& e) {
+            std::cerr << "[DEBUG] Error closing/reopening device: " << e.what() << std::endl;
+            // If reopening fails, device will be null and next start will fail gracefully
+            device_.reset();
+        }
+    }
+    
+    std::cout << "[DEBUG] stopPipeline() finished" << std::endl;
 }
 
 void EngineManager::processingLoop() {
