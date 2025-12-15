@@ -1,3 +1,4 @@
+
 #include "RecordModule.h"
 #include <iostream>
 #include <chrono>
@@ -14,43 +15,48 @@ RecordModule::RecordModule(const RecordConfig& config)
 bool RecordModule::configure(dai::Pipeline& pipeline,
                              std::shared_ptr<dai::node::Camera> camera) {
     try {
-        // Create video encoder node
-        auto videoEncoder = pipeline.create<dai::node::VideoEncoder>();
-        
-        // Configure encoder
-        if (config_.use_h265) {
-            videoEncoder->setDefaultProfilePreset(
-                config_.fps,
-                dai::VideoEncoderProperties::Profile::H265_MAIN
-            );
-        } else {
-            videoEncoder->setDefaultProfilePreset(
-                config_.fps,
-                dai::VideoEncoderProperties::Profile::H264_MAIN
-            );
-        }
-        videoEncoder->setBitrate(config_.bitrate);
-        videoEncoder->setKeyframeFrequency(static_cast<int>(config_.fps)); // Keyframe every second
+        // Generate output filename with timestamp
+        auto now = std::chrono::system_clock::now();
+        auto time_t = std::chrono::system_clock::to_time_t(now);
+        std::stringstream ss;
+        ss << config_.output_path << config_.filename_prefix << "_"
+           << std::put_time(std::localtime(&time_t), "%Y%m%d_%H%M%S")
+           << ".mp4";
+        std::string relative_path = ss.str();
 
-        // V3 API: Request camera output for encoder (NV12 is efficient for encoding)
-        auto* cameraOutput = camera->requestOutput(
+        // Create output directory if needed
+        std::filesystem::create_directories(config_.output_path);
+
+        // Convert to absolute path for RecordVideo node (safer for device filesystem)
+        std::filesystem::path file_path = std::filesystem::absolute(relative_path);
+        output_file_path_ = file_path.string();
+
+        // Create video encoder
+        // RecordVideo node only supports H264 encoding (as per DepthAI example)
+        auto videoEncoder = pipeline.create<dai::node::VideoEncoder>();
+        videoEncoder->setProfile(dai::VideoEncoderProperties::Profile::H264_MAIN);
+        videoEncoder->setBitrate(config_.bitrate);
+        videoEncoder->setKeyframeFrequency(static_cast<int>(config_.fps));
+
+        // Camera output for encoder (NV12 is optimal for encoding)
+        auto* encoderInput = camera->requestOutput(
             {config_.width, config_.height},
             dai::ImgFrame::Type::NV12,
             dai::ImgResizeMode::CROP,
             config_.fps,
-            false  // no undistortion needed for recording
+            false
         );
+        encoderInput->link(videoEncoder->input);
 
-        // Link camera to encoder
-        cameraOutput->link(videoEncoder->input);
+        // V3: Use RecordVideo node for on-device MP4 recording
+        // Note: RecordVideo writes to the device filesystem, then transfers to host
+        auto record = pipeline.create<dai::node::RecordVideo>();
+        record->setRecordVideoFile(file_path);
+        videoEncoder->out.link(record->input);
 
-        // Create output queue for encoded data
-        encoded_queue_ = videoEncoder->out.createOutputQueue(30, true);
-
-        // Also create a preview output for monitoring
-        // Note: Camera resizer only supports BGR888i (interleaved), not BGR888p (planar)
+        // Separate preview stream for UI (lower res, doesn't affect recording)
         auto* previewOutput = camera->requestOutput(
-            {640, 360},  // Lower resolution preview
+            {640, 360},
             dai::ImgFrame::Type::BGR888i,
             dai::ImgResizeMode::CROP,
             config_.fps,
@@ -58,28 +64,10 @@ bool RecordModule::configure(dai::Pipeline& pipeline,
         );
         preview_queue_ = previewOutput->createOutputQueue(4, false);
 
-        // Generate output filename with timestamp
-        auto now = std::chrono::system_clock::now();
-        auto time_t = std::chrono::system_clock::to_time_t(now);
-        std::stringstream ss;
-        ss << config_.output_path << config_.filename_prefix << "_"
-           << std::put_time(std::localtime(&time_t), "%Y%m%d_%H%M%S")
-           << (config_.use_h265 ? ".h265" : ".h264");
-        output_file_path_ = ss.str();
-
-        // Create output directory if needed
-        std::filesystem::create_directories(config_.output_path);
-
-        // Open output file
-        output_file_.open(output_file_path_, std::ios::binary);
-        if (!output_file_.is_open()) {
-            std::cerr << "Failed to open output file: " << output_file_path_ << std::endl;
-            return false;
-        }
+        start_time_ = std::chrono::steady_clock::now();
 
         std::cout << "RecordModule configured: " << config_.width << "x" << config_.height 
-                  << " @ " << config_.fps << " fps"
-                  << " -> " << output_file_path_ << std::endl;
+                  << " @ " << config_.fps << " fps -> " << output_file_path_ << std::endl;
 
         return true;
 
@@ -90,17 +78,7 @@ bool RecordModule::configure(dai::Pipeline& pipeline,
 }
 
 void RecordModule::process() {
-    // Handle encoded frames
-    if (encoded_queue_) {
-        auto encodedFrame = encoded_queue_->tryGet<dai::ImgFrame>();
-        if (encodedFrame) {
-            auto data = encodedFrame->getData();
-            output_file_.write(reinterpret_cast<const char*>(data.data()), data.size());
-            recorded_frames_++;
-        }
-    }
-
-    // Handle preview
+    // Only handle preview - recording happens on-device automatically
     if (preview_queue_ && show_preview_) {
         auto previewFrame = preview_queue_->tryGet<dai::ImgFrame>();
         if (previewFrame) {
@@ -110,14 +88,17 @@ void RecordModule::process() {
 
             cv::Mat frame = previewFrame->getCvFrame();
             
-            // Add recording indicator
+            // Recording indicator
             cv::circle(frame, cv::Point(30, 30), 15, cv::Scalar(0, 0, 255), -1);
             cv::putText(frame, "REC", cv::Point(50, 38), 
                        cv::FONT_HERSHEY_SIMPLEX, 0.7, cv::Scalar(0, 0, 255), 2);
             
-            // Frame counter
-            std::string frame_text = "Frames: " + std::to_string(recorded_frames_);
-            cv::putText(frame, frame_text, cv::Point(10, frame.rows - 20),
+            // Elapsed time
+            auto elapsed = std::chrono::steady_clock::now() - start_time_;
+            auto secs = std::chrono::duration_cast<std::chrono::seconds>(elapsed).count();
+            std::string time_text = "Time: " + std::to_string(secs / 60) + ":" + 
+                                    (secs % 60 < 10 ? "0" : "") + std::to_string(secs % 60);
+            cv::putText(frame, time_text, cv::Point(10, frame.rows - 20),
                        cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(255, 255, 255), 1);
 
             cv::imshow("Recording Preview", frame);
@@ -132,19 +113,12 @@ void RecordModule::process() {
 }
 
 void RecordModule::cleanup() {
-    if (output_file_.is_open()) {
-        output_file_.flush();
-        output_file_.close();
-        std::cout << "Recording saved: " << output_file_path_ 
-                  << " (" << recorded_frames_ << " frames)" << std::endl;
-    }
-    
     if (show_preview_) {
         cv::destroyAllWindows();
     }
-    
-    encoded_queue_.reset();
     preview_queue_.reset();
+    
+    std::cout << "Recording saved: " << output_file_path_ << std::endl;
 }
 
 } // namespace oak

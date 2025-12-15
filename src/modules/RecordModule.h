@@ -2,7 +2,7 @@
 
 #include "../engine/ModuleBase.h"
 #include "../engine/Types.h"
-#include <fstream>
+#include <filesystem>
 #include <opencv2/opencv.hpp>
 
 namespace oak {
@@ -21,19 +21,14 @@ public:
     void process() override;
     void cleanup() override;
 
-    // Recording control
     std::string getOutputFilePath() const { return output_file_path_; }
-    uint64_t getRecordedFrames() const { return recorded_frames_; }
 
 private:
     RecordConfig config_;
-    std::shared_ptr<dai::MessageQueue> encoded_queue_;
     std::shared_ptr<dai::MessageQueue> preview_queue_;
-    
-    std::ofstream output_file_;
     std::string output_file_path_;
-    uint64_t recorded_frames_ = 0;
     bool show_preview_ = true;
+    std::chrono::steady_clock::time_point start_time_;
 };
 
 } // namespace oak

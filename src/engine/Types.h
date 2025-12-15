@@ -51,8 +51,8 @@ struct RecordConfig {
     uint32_t width = 1920;
     uint32_t height = 1080;
     float fps = 30.0f;
-    bool use_h265 = true;  // H.265 or H.264
     int bitrate = 8000000; // 8 Mbps
+    // Note: RecordVideo node only supports H264 encoding
 };
 
 struct InferenceConfig {

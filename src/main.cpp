@@ -120,7 +120,6 @@ int main(int argc, char* argv[]) {
                 recordConfig.width = 1920;
                 recordConfig.height = 1080;
                 recordConfig.fps = 30.0f;
-                recordConfig.use_h265 = true;
                 recordConfig.bitrate = 8000000;  // 8 Mbps
                 
                 if (engine.startRecording(recordConfig)) {
